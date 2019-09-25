@@ -25,6 +25,7 @@ python
 
 import csv
 import re
+import bson
 
 from pymongo import MongoClient
 
@@ -52,37 +53,36 @@ def find_cheapest(db):
     Отсортировать билеты из базы по возрастанию цены
     Документация: https://docs.mongodb.com/manual/reference/method/cursor.sort/
     """
-    result = mydb.art_collection.find().sort('Price', pymongo.ASCENDING)
+    result = mydb.art_collection.find().sort('Price', 1)
     return result
 
 
-def find_by_name(name, db_collection):
+def find_by_name(db):
     """
     Найти билеты по имени исполнителя (в том числе – по подстроке, например "Seconds to"),
     и вернуть их по возрастанию цены
     """
-
-    result = db_collection.find_one({'Исполнитель' : name})
-
-    #regex = re.compile('укажите регулярное выражение для поиска. ' \
-    #                   'Обратите внимание, что в строке могут быть \
-    #                   специальные символы, их нужно экранировать')
+    search_name = input('Введите регулярное выражение для поиска: ')
+    prep_regexp = re.sub('[^A-Za-zА-Яа-я0-9- ]+', '', search_name)
+    regex = bson.regex.Regex(prep_regexp)
+    result = db.art_collection.find({'Исполнитель' : regex}).sort('Price', 1)
     return result
 
 
 def clear_db(dbname):
     client = MongoClient('localhost')
-    client.drop_database(dbname)
+    db = client[dbname]
+    mycol = db['art_collection']
+    mycol.drop()
 
-    db.drop_database('')
 
 if __name__ == '__main__':
     mydb = mk_mongodb()
     mydb_name = read_data('artists.csv', mydb)
     for k in mydb.art_collection.find():
         print('ispolnitel:', k['Исполнитель'],'cena',k['Price'])
-    search_name = input('Введите имя для поиска: ')
-    searched_name = find_by_name(search_name, mydb.art_collection)
-    print(searched_name)
+    searched_names = find_by_name(mydb)
+    print(searched_names)
+    clear_db(mydb_name)
 
 
